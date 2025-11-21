@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1076314162527",
+    "project_id": "trosy-app",
+    "storage_bucket": "trosy-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076314162527:android:310b9f28a35158924322ea",
+        "android_client_info": {
+          "package_name": "com.example.trosy_driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwPe83zdcWxHIkOyt5ECWFIzMWA913ims"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
