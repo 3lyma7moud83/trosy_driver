@@ -1,12 +1,12 @@
 // lib/pages/driver_ride_page.dart
+
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:js_util' as js_util;
-import 'dart:convert';
-import 'dart:ui_web' as ui;
-import '../../services/ride_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:location/location.dart';
+
+// MapLibre
+import 'package:maplibre_gl/maplibre_gl.dart';
 
 class DriverRidePage extends StatefulWidget {
   final String rideId;
@@ -34,188 +34,118 @@ class DriverRidePage extends StatefulWidget {
 }
 
 class _DriverRidePageState extends State<DriverRidePage> {
-  double? driverLat;
-  double? driverLng;
+  // خريطة MapLibre
+  MapLibreMapController? _mapController;
 
-  bool mapLoaded = false;
-  Timer? gpsTimer;
+  // GPS
+  final Location _location = Location();
+  Timer? _gpsTimer;
 
-  Future jsEval(String code) async {
-    return js_util.callMethod(html.window, 'eval', [code]);
-  }
+  double? _driverLat;
+  double? _driverLng;
+
+  // Symbols (Markers)
+  Symbol? _driverSymbol;
+  Symbol? _pickupSymbol;
+  Symbol? _dropSymbol;
 
   @override
   void initState() {
     super.initState();
-    registerView();
-    _startGPS();
+    _startGpsTracking();
   }
 
   @override
   void dispose() {
-    gpsTimer?.cancel();
+    _gpsTimer?.cancel();
     super.dispose();
   }
 
-  // -----------------------------
-  // 1) GPS للسواق
-  // -----------------------------
-  void _startGPS() {
-    gpsTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      final pos = await html.window.navigator.geolocation.getCurrentPosition();
+  // =========================================================
+  // تتبع السواق كل 3 ثواني
+  // =========================================================
+  Future<void> _startGpsTracking() async {
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+    }
 
-      driverLat = pos.coords!.latitude!.toDouble();
-      driverLng = pos.coords!.longitude!.toDouble();
+    PermissionStatus perm = await _location.hasPermission();
+    if (perm == PermissionStatus.denied) {
+      perm = await _location.requestPermission();
+    }
 
-      // تحديث مكان السواق
-      FirebaseFirestore.instance
+    _gpsTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final pos = await _location.getLocation();
+
+      _driverLat = pos.latitude;
+      _driverLng = pos.longitude;
+
+      if (_driverLat == null || _driverLng == null) return;
+
+      // تحديث مكان السواق في Firestore
+      await FirebaseFirestore.instance
           .collection("drivers_location")
           .doc(widget.driverId)
           .set({
-        "lat": driverLat,
-        "lng": driverLng,
+        "lat": _driverLat,
+        "lng": _driverLng,
         "updatedAt": DateTime.now(),
       }, SetOptions(merge: true));
 
-      if (mapLoaded) {
-        jsEval(
-            "window._DRV.driverMarker.setGeometry({lat:$driverLat, lng:$driverLng})");
-      } else {
-        _loadMap();
+      // تحديث ماركر السواق على الخريطة
+      if (_mapController != null && _driverSymbol != null) {
+        await _mapController!.updateSymbol(
+          _driverSymbol!,
+          SymbolOptions(
+            geometry: LatLng(_driverLat!, _driverLng!),
+          ),
+        );
       }
     });
   }
 
-  // -----------------------------
-  // 2) تحميل الخريطة
-  // -----------------------------
-  void _loadMap() async {
-    if (driverLat == null || driverLng == null) return;
+  // =========================================================
+  // إضافة الماركرز (السواق - pickup - drop)
+  // =========================================================
+  Future<void> _addMarkers() async {
+    final c = _mapController;
+    if (c == null) return;
 
-    _addJs("https://js.api.here.com/v3/3.1/mapsjs-core.js");
-    _addJs("https://js.api.here.com/v3/3.1/mapsjs-service.js");
-    _addJs("https://js.api.here.com/v3/3.1/mapsjs-ui.js");
-    _addJs("https://js.api.here.com/v3/3.1/mapsjs-mapevents.js");
+    // ماركر السواق (لو الـ GPS لسه ما اشتغلش، نحطه على pickup مؤقتاً)
+    final driverLat = _driverLat ?? widget.pickupLat;
+    final driverLng = _driverLng ?? widget.pickupLng;
 
-    await Future.delayed(const Duration(milliseconds: 400));
+    _driverSymbol = await c.addSymbol(
+      SymbolOptions(
+        geometry: LatLng(driverLat, driverLng),
+        iconSize: 1.3,
+        // ممكن تضيف iconImage لو عندك صورة عربية في الـ style
+      ),
+    );
 
-    const apiKey = "1kDVXmcm8Mkgazc6a6V2tOj7pRTpRJUP3pJCnqIlGys";
+    // ماركر pickup
+    _pickupSymbol = await c.addSymbol(
+  SymbolOptions(
+    geometry: LatLng(widget.pickupLat, widget.pickupLng),
+    iconImage: "marker-15",
+    iconSize: 1.3,
+  ),
+);
 
-    final js = """
-      (function(){
-        window._DRV = {};
+_dropSymbol = await c.addSymbol(
+  SymbolOptions(
+    geometry: LatLng(widget.dropLat, widget.dropLng),
+    iconImage: "marker-15",
+    iconSize: 1.3,
+  ),
+);
 
-        var platform = new H.service.Platform({apikey:"$apiKey"});
-        var layers = platform.createDefaultLayers();
-
-        var map = new H.Map(
-          document.getElementById("driverRideMap"),
-          layers.vector.normal.map,
-          {zoom:15, center:{lat:$driverLat, lng:$driverLng}}
-        );
-
-        window._DRV.map = map;
-
-        new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
-        H.ui.UI.createDefault(map, layers);
-
-        // marker driver
-        window._DRV.driverMarker = new H.map.Marker({lat:$driverLat, lng:$driverLng});
-        map.addObject(window._DRV.driverMarker);
-
-        // pickup marker
-        window._DRV.pickup = new H.map.Marker({
-          lat:${widget.pickupLat}, 
-          lng:${widget.pickupLng}
-        });
-        map.addObject(window._DRV.pickup);
-
-        // drop marker
-        window._DRV.drop = new H.map.Marker({
-          lat:${widget.dropLat}, 
-          lng:${widget.dropLng}
-        });
-        map.addObject(window._DRV.drop);
-
-      })();
-    """;
-
-    await jsEval(js);
-
-    mapLoaded = true;
-
-    _drawRoute(driverLat!, driverLng!, widget.pickupLat, widget.pickupLng);
   }
 
-  void _addJs(String url) {
-    final s = html.ScriptElement()
-      ..src = url
-      ..type = "text/javascript";
-    html.document.body!.append(s);
-  }
-
-  // -----------------------------
-  // 3) رسم الطريق
-  // -----------------------------
-  Future<void> _drawRoute(
-      double aLat, double aLng, double bLat, double bLng) async {
-    const apiKey = "1kDVXmcm8Mkgazc6a6V2tOj7pRTpRJUP3pJCnqIlGys";
-
-    final url =
-        "https://router.hereapi.com/v8/routes?transportMode=car&origin=$aLat,$aLng&destination=$bLat,$bLng&return=polyline&apiKey=$apiKey";
-
-    final res = await html.HttpRequest.getString(url);
-    final data = jsonDecode(res);
-
-    final sec = data["routes"][0]["sections"][0];
-    final encoded = sec["polyline"];
-    final decoded = _decode(encoded);
-
-    await jsEval(""" 
-      (function(){
-        var ls = new H.geo.LineString();
-        ${decoded.map((p) => "ls.pushPoint({lat:${p['lat']}, lng:${p['lng']}});").join("")}
-        var route = new H.map.Polyline(ls, {style:{lineWidth:5, strokeColor:'#0099ff'}});
-        window._DRV.map.addObject(route);
-      })();
-    """);
-  }
-
-  List<Map<String, double>> _decode(String poly) {
-    List<Map<String, double>> points = [];
-    int index = 0, lat = 0, lng = 0;
-
-    while (index < poly.length) {
-      int b, shift = 0, res = 0;
-
-      do {
-        b = poly.codeUnitAt(index++) - 63;
-        res |= (b & 0x1F) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      lat += (res & 1) != 0 ? ~(res >> 1) : (res >> 1);
-
-      shift = 0;
-      res = 0;
-
-      do {
-        b = poly.codeUnitAt(index++) - 63;
-        res |= (b & 0x1F) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      lng += (res & 1) != 0 ? ~(res >> 1) : (res >> 1);
-
-      points.add({"lat": lat / 1e5, "lng": lng / 1e5});
-    }
-
-    return points;
-  }
-
-  // -----------------------------
-  // 4) تغيير حالة الرحلة
-  // -----------------------------
+  // =========================================================
+  // تغيير حالة الرحلة
+  // =========================================================
   Future<void> updateStatus(String status) async {
     await FirebaseFirestore.instance
         .collection("rides_searching")
@@ -229,7 +159,25 @@ class _DriverRidePageState extends State<DriverRidePage> {
       appBar: AppBar(title: const Text("رحلتك مع الراكب")),
       body: Column(
         children: [
-          Expanded(child: HtmlElementView(viewType: "driver-ride-view")),
+          // الخريطة
+          Expanded(
+            child: MapLibreMap(
+              styleString: 'https://demotiles.maplibre.org/style.json',
+              initialCameraPosition: CameraPosition(
+                target: LatLng(widget.pickupLat, widget.pickupLng),
+                zoom: 14,
+              ),
+              onMapCreated: (controller) async {
+                _mapController = controller;
+
+                // استنى شوية لحد ما الـ map ترندر
+                await Future.delayed(const Duration(milliseconds: 500));
+                await _addMarkers();
+              },
+            ),
+          ),
+
+          // الأزرار تحت
           Container(
             padding: const EdgeInsets.all(20),
             color: Colors.white,
@@ -237,60 +185,34 @@ class _DriverRidePageState extends State<DriverRidePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 ElevatedButton(
-                    onPressed: () => updateStatus("driver_arrived"),
-                    child: const Text("✔ وصلت")),
+                  onPressed: () => updateStatus("driver_arrived"),
+                  child: const Text("✔ وصلت"),
+                ),
                 ElevatedButton(
-                    onPressed: () => updateStatus("on_trip"),
-                    child: const Text("🚗 بدأت")),
+                  onPressed: () => updateStatus("on_trip"),
+                  child: const Text("🚗 بدأت"),
+                ),
                 ElevatedButton(
-  onPressed: () async {
-    // 1) تحديث الحالة
-    await updateStatus("completed");
+                  onPressed: () async {
+                    await updateStatus("completed");
 
-    // 2) حفظ الرحلة في completed_rides
-    await RideService.saveCompletedRide(
-      rideId: widget.rideId,
-      riderId: widget.riderId,
-      driverId: widget.driverId,
-      pickupLat: widget.pickupLat,
-      pickupLng: widget.pickupLng,
-      dropLat: widget.dropLat,
-      dropLng: widget.dropLng,
-      price: 0, // لو عندك سعر احطه
-    );
+                    if (!mounted) return;
 
-    // 3) حذفها من rides_searching
-    await RideService.removeRide(widget.rideId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("تم إنهاء الرحلة بنجاح"),
+                      ),
+                    );
 
-    // 4) رجوع للسواق للصفحة الأساسية
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم إنهاء الرحلة بنجاح")),
-      );
-      Navigator.pop(context);
-    }
-  },
-  child: const Text("🏁 خلصت"),
-),
-
+                    Navigator.pop(context);
+                  },
+                  child: const Text("🏁 خلصت"),
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
-}
-
-void registerView() {
-  ui.platformViewRegistry.registerViewFactory(
-    "driver-ride-view",
-    (int id) {
-      final div = html.DivElement()
-        ..id = "driverRideMap"
-        ..style.width = "100%"
-        ..style.height = "100%";
-      return div;
-    },
-  );
 }

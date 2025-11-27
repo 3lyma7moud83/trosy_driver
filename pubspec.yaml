@@ -22,13 +22,5 @@ dependencies:
   geolocator: ^12.0.0
   location: ^7.0.0
 
-  # Mapbox
-  mapbox_maps_flutter: ^2.2.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^5.0.0
-
-flutter:
-  uses-material-design: true
+  # MapLibre
+  maplibre_gl: ^0.22.0

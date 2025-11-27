@@ -1,7 +1,4 @@
-// lib/pages/driver_finder_page.dart
-
 import 'package:flutter/material.dart';
-import '../../services/ride_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'driver_ride_page.dart';
 
@@ -18,11 +15,14 @@ class _DriverFinderPageState extends State<DriverFinderPage> {
   bool loading = false;
   List<QueryDocumentSnapshot<Map<String, dynamic>>>? offers;
 
-  // /// جلب كل الطلبات اللي بتدور على سواق
+  // جلب كل الرحلات اللي بتدور على سواق من Firestore مباشرة
   Future<void> fetchSearching() async {
     setState(() => loading = true);
 
-    final snap = await RideService.getSearchingRides();
+    final snap = await FirebaseFirestore.instance
+        .collection("rides_searching")
+        .where("status", isEqualTo: "searching")
+        .get();
 
     setState(() {
       offers = snap.docs;
@@ -60,13 +60,12 @@ class _DriverFinderPageState extends State<DriverFinderPage> {
                     final data = doc.data();
 
                     return Card(
-                      margin:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: ListTile(
                         title: Text("طلب رقم: ${doc.id}"),
                         subtitle: Text(
-                            "Pickup: ${data["pickupLat"]}, ${data["pickupLng"]}"),
-
+                          "Pickup: ${data["pickupLat"]}, ${data["pickupLng"]}",
+                        ),
                         trailing: ElevatedButton(
                           child: const Text("إقبل"),
                           onPressed: () {
