@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'driver_login_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -13,37 +13,27 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
 
-    // بعد ثانيتين يروح لصفحة اللوجين
-    Timer(const Duration(seconds: 2), () {
-      Navigator.pushReplacementNamed(context, "/login");
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DriverLoginPage()),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B5ED7),  // نفس الأزرق اللي في الصورة
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text(
-              "TROCY",
-              style: TextStyle(
-                fontSize: 48,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              "DRIVER",
-              style: TextStyle(
-                fontSize: 48,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+      backgroundColor: const Color(0xFF0B5ED7),
+      body: const Center(
+        child: Text(
+          "TROCY\nDRIVER",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
