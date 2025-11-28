@@ -16,25 +16,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download Flutter 3.22.2
+      - name: Install FVM
         run: |
-          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz
-          tar -xf flutter_linux_3.22.2-stable.tar.xz
-          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
-          export PATH="$GITHUB_WORKSPACE/flutter/bin:$PATH"
-          flutter --version
+          dart pub global activate fvm
 
-      - name: Enable Flutter Web
-        run: flutter config --enable-web
+      - name: Install Flutter 3.22.2 via FVM
+        run: |
+          dart pub global run fvm install 3.22.2
+          dart pub global run fvm use 3.22.2 --force
+          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
 
-      - name: Flutter Doctor
-        run: flutter doctor -v
+      - name: Use Flutter
+        run: |
+          fvm flutter --version
+          fvm flutter config --enable-web
 
       - name: Get dependencies
-        run: flutter pub get
+        run: fvm flutter pub get
 
-      - name: Build Flutter Web
-        run: flutter build web --release --base-href /trosy_driver/
+      - name: Build Web
+        run: fvm flutter build web --release --base-href /trosy_driver/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
