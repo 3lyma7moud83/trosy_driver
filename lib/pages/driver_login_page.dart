@@ -6,7 +6,7 @@ class DriverLoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color.fromARGB(255, 22, 193, 71),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -18,7 +18,7 @@ class DriverLoginPage extends StatelessWidget {
 
                 // Title
                 const Text(
-                  "TROYc",
+                  "TRO",
                   style: TextStyle(
                     fontSize: 48,
                     color: Color(0xFF0B5ED7),
