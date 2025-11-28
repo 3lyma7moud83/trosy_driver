@@ -16,13 +16,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Flutter 3.38.3
+      - name: Install Flutter 3.22.2
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'
+          flutter-version: '3.22.2'
 
       - name: Enable Flutter Web
         run: flutter config --enable-web
+
+      - name: Flutter Doctor
+        run: flutter doctor -v
 
       - name: Get dependencies
         run: flutter pub get
