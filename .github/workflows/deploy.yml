@@ -16,10 +16,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Flutter 3.22.2
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.2'
+      - name: Download Flutter 3.22.2
+        run: |
+          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz
+          tar -xf flutter_linux_3.22.2-stable.tar.xz
+          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
 
       - name: Enable Flutter Web
         run: flutter config --enable-web
