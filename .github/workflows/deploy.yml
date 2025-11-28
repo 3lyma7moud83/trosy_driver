@@ -16,33 +16,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Dart SDK
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https
-          sudo apt-get install -y unzip curl
-          sudo apt-get install -y dart
+      - name: Install Flutter 3.19.6
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
 
-      - name: Install FVM
-        run: |
-          dart pub global activate fvm
+      - name: Enable Flutter Web
+        run: flutter config --enable-web
 
-      - name: Install Flutter 3.22.2 via FVM
-        run: |
-          dart pub global run fvm install 3.22.2
-          dart pub global run fvm use 3.22.2 --force
-          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
-
-      - name: Use Flutter Version
-        run: |
-          fvm flutter --version
-          fvm flutter config --enable-web
+      - name: Flutter Doctor
+        run: flutter doctor -v
 
       - name: Get dependencies
-        run: fvm flutter pub get
+        run: flutter pub get
 
-      - name: Build Web
-        run: fvm flutter build web --release --base-href /trosy_driver/
+      - name: Build Flutter Web
+        run: flutter build web --release --base-href /trosy_driver/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
