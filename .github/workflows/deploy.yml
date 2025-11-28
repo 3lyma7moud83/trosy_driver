@@ -20,8 +20,8 @@ jobs:
         run: |
           curl -O https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz
           tar -xf flutter_linux_3.22.2-stable.tar.xz
-          mv flutter $GITHUB_WORKSPACE/flutter
-          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          echo "$PWD/flutter/bin" >> $GITHUB_PATH
+          export PATH="$PWD/flutter/bin:$PATH"
           flutter --version
 
       - name: Enable Flutter Web
