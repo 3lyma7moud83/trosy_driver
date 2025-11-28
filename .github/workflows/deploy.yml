@@ -21,6 +21,8 @@ jobs:
           wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz
           tar -xf flutter_linux_3.22.2-stable.tar.xz
           echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          export PATH="$GITHUB_WORKSPACE/flutter/bin:$PATH"
+          flutter --version
 
       - name: Enable Flutter Web
         run: flutter config --enable-web
